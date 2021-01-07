@@ -279,22 +279,23 @@ int KISA_SHA256_FILE(unsigned char *path, unsigned char *out)
   		free(read_buf);
 	return SHA256_DIGEST_LENGTH;
 }
-#define VERSION 1
 
+#define VERSION 2
 int main()
 {
 	uint8_t hash[SHA256_DIGEST_LENGTH];
-	size_t i, j;
+	size_t j;
 
-	#if (VERSION == 1) /* 문자 SHA256*/
+	#if (VERSION == 1) /* string SHA256*/
 		char *str = "abc";
 		printf("VERSION == 1\n");
 		KISA_SHA256_MD(str, strlen(str), hash);
-	#elif (VERSION == 2) /* 파일 SHA256*/
+	#elif (VERSION == 2) /* File SHA256*/
 		printf("VERSION == 2\n");
 		char *path = "/home/moon/workspace/kisa_sha256/test_readme.md"; // file path
 		KISA_SHA256_FILE(path, hash);
 	#endif
+
 	for (j = 0; j < SHA256_DIGEST_LENGTH; j++)
 		printf("%02x%s", hash[j], ((j % 4) == 3) ? "" : "");
 	printf("\n\n");

@@ -91,7 +91,7 @@ extern "C" {
 
 	/*!
 	 * \brief
-	 * SHA256 Digest 처리 함수
+	 * 문자 SHA256 Digest 처리 함수
 	 * 
 	 * \param in
 	 * 다이제스트 생성을 위한 메시지 입력 버퍼
@@ -110,7 +110,23 @@ extern "C" {
 	 */
 	int KISA_SHA256_MD(unsigned char *in, int len, unsigned char *out);
 
-	int KISA_SHA256_FILE(unsigned char *in, unsigned char *out);
+	/*!
+	 * \brief
+	 * 파일 SHA256 Digest 처리 함수
+	 * 
+	 * \param path
+	 * 다이제스트 생성을 위한 파일 경로
+	 * 
+	 * \param out
+	 * 해시생성 결과가 입력될 버퍼
+	 * 
+	 * \returns
+	 * 구동 성공 (생성된 해시의 길이) / 메모리 할당 혹은 초기화가 적절히 이루어지지 않았을 경우 (0)
+	 *
+	 * \remarks
+	 * 출력버퍼 out의 크기는 SHA256 Digest의 결과(32 Bytes) 이상으로 메모리 할당이 되어 있어야 함
+	 */
+	int KISA_SHA256_FILE(unsigned char *path, unsigned char *out);
 
 #ifdef  __cplusplus
 }
