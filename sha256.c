@@ -151,20 +151,23 @@ static void _hash(SHA256_INFO *Info)
 // o 입력				: Info		-  SHA-256 구조체의 포인터 변수
 // o 출력				: 
 //*********************************************************************************************************************************
-void SHA256_Init(SHA256_INFO *Info)
+int SHA256_Init(SHA256_INFO *Info)
 {
-	if ( Info != NULL ) {
-		Info->uHighLength[0]  = Info->uHighLength[1] = 0;
-		Info->len      = 0;
-		Info->uChainVar[0] = 0x6a09e667;
-		Info->uChainVar[1] = 0xbb67ae85;
-		Info->uChainVar[2] = 0x3c6ef372;
-		Info->uChainVar[3] = 0xa54ff53a;
-		Info->uChainVar[4] = 0x510e527f;
-		Info->uChainVar[5] = 0x9b05688c;
-		Info->uChainVar[6] = 0x1f83d9ab;
-		Info->uChainVar[7] = 0x5be0cd19;
-	}
+	if (Info == NULL)
+		return 0;
+
+	Info->uHighLength[0]  = Info->uHighLength[1] = 0;
+	Info->len      = 0;
+	Info->uChainVar[0] = 0x6a09e667;
+	Info->uChainVar[1] = 0xbb67ae85;
+	Info->uChainVar[2] = 0x3c6ef372;
+	Info->uChainVar[3] = 0xa54ff53a;
+	Info->uChainVar[4] = 0x510e527f;
+	Info->uChainVar[5] = 0x9b05688c;
+	Info->uChainVar[6] = 0x1f83d9ab;
+	Info->uChainVar[7] = 0x5be0cd19;
+	
+	return 1;
 }
 
 //*********************************************************************************************************************************
@@ -174,12 +177,13 @@ void SHA256_Init(SHA256_INFO *Info)
 //						  uDataLen	 - 입력 메시지의 바이트 길이
 // o 출력				: 
 //*********************************************************************************************************************************
-void SHA256_Process(SHA256_INFO *Info, const void *pszMessage, size_t uDataLen)
+int SHA256_Process(SHA256_INFO *Info, const void *pszMessage, size_t uDataLen)
 {
 	register size_t i;
 	const uint8_t *bytes = (const uint8_t *)pszMessage;
 
 	if ( (Info != NULL) && (bytes != NULL) )
+	{
 		for (i = 0; i < uDataLen; i++) {
 			Info->szBuffer[Info->len] = bytes[i];
 			Info->len++;
@@ -189,6 +193,10 @@ void SHA256_Process(SHA256_INFO *Info, const void *pszMessage, size_t uDataLen)
 				Info->len = 0;
 			}
 		}
+	} else {
+		return 0;
+	}
+	return 1;
 }
 
 //*********************************************************************************************************************************
@@ -197,7 +205,7 @@ void SHA256_Process(SHA256_INFO *Info, const void *pszMessage, size_t uDataLen)
 //						  pszDigest	- SHA-256 해쉬값을 저장할 포인터 변수
 // o 출력				:
 //*********************************************************************************************************************************
-void SHA256_Close(SHA256_INFO *Info, uint8_t *pszDigest)
+int SHA256_Close(SHA256_INFO *Info, uint8_t *pszDigest)
 {
 	register uint32_t i, j;
 
@@ -235,7 +243,10 @@ void SHA256_Close(SHA256_INFO *Info, uint8_t *pszDigest)
 				pszDigest[i + 24] = _shb(Info->uChainVar[6], j);
 				pszDigest[i + 28] = _shb(Info->uChainVar[7], j);
 			}
+	}else{
+		return 0;
 	}
+	return 1;
 }
 //*********************************************************************************************************************************
 // o SHA256_Encrpyt()  : 사용자 입력 평문을 한번에 처리
@@ -243,13 +254,17 @@ void SHA256_Close(SHA256_INFO *Info, uint8_t *pszDigest)
 //						 pszDigest	- SHA-256 해값을 저장할 포인터 변수
 // o 출력				:
 //*********************************************************************************************************************************
-void SHA256_Encrpyt(const void *pszMessage, size_t uPlainTextLen, uint8_t *pszDigest)
+int SHA256_Encrpyt(const void *pszMessage, size_t uPlainTextLen, uint8_t *pszDigest)
 {
 	SHA256_INFO Info;
 
-	SHA256_Init(&Info);
-	SHA256_Process(&Info, pszMessage, uPlainTextLen);
-	SHA256_Close(&Info, pszDigest);
+	if(!SHA256_Init(&Info))
+		return 0;
+	if(!SHA256_Process(&Info, pszMessage, uPlainTextLen))
+		return 0;
+	if(!SHA256_Close(&Info, pszDigest))
+		return 0;
+	return SHA256_DIGEST_VALUELEN;
 }
 
 
@@ -259,7 +274,7 @@ void SHA256_Encrpyt(const void *pszMessage, size_t uPlainTextLen, uint8_t *pszDi
 //						 pszDigest	- SHA-256 해값을 저장할 포인터 변수
 // o 출력				:
 //*********************************************************************************************************************************
-void FILE_SHA256_Encrpyt(char* path,  uint8_t *pszDigest)
+int FILE_SHA256_Encrpyt(char* path,  uint8_t *pszDigest)
 {
 	const int bufSize = 1024;
 	SHA256_INFO Info;
@@ -269,30 +284,35 @@ void FILE_SHA256_Encrpyt(char* path,  uint8_t *pszDigest)
 	if (!file) 
 	{ 
 		printf("File open ERR \n"); 
-		return ; 
+		return 0; 
 	} 
 	printf("File open \n\n");
 
 	/*sha256 init*/ 
-	SHA256_Init(&Info);
+	if(!SHA256_Init(&Info))
+		return 0;
 	printf("SHA256 Init \n\n");
 
 	int readlen = 0;
 	unsigned char* read_buf = (unsigned char*)malloc(bufSize + 1);
 
-	if (!read_buf) return ;
+	if (!read_buf) return 0;
 	while ((readlen = fread(read_buf, 1, bufSize, file)))
 	{ 
 		printf("readlen [%d]\n", readlen);
-		SHA256_Process(&Info, read_buf, readlen);
+		if(!SHA256_Process(&Info, read_buf, readlen))
+			return 0;
 		memset(read_buf, 0x00, bufSize);
 	}
 	printf("File read \n\n"); 
-	SHA256_Close(&Info, pszDigest);
+	if(!SHA256_Close(&Info, pszDigest))
+		return 0;
 
 	fclose(file);
 	if(read_buf)
   		free(read_buf);
+
+	return SHA256_DIGEST_VALUELEN;
 }
 
 // ref : https://github.com/ilvn/SHA256/tree/master/mark2 
@@ -305,13 +325,17 @@ int main(void)
 	size_t i, j;
 
 	char *path = "/home/moon/workspace/kisa_sha256/test_readme.md"; // file path
-
-	FILE_SHA256_Encrpyt(path,hash);
-	
-	printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"); 
+	int Encrpyt_result = FILE_SHA256_Encrpyt(path,hash);
+	// printf("%d",Encrpyt_result);
+	if (Encrpyt_result)
+	{
+		printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"); 
 		for (j = 0; j < SHA256_DIGEST_VALUELEN; j++)
 			printf("%02x%s", hash[j], ((j % 4) == 3) ? "" : "");
-	printf("\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"); 
+		printf("\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"); 
+	} else {
+		printf("\nerrorn"); 
+	}
 	// for (i = 0; i < (sizeof(buf) / sizeof(buf[0])); i += 2) {
 	// 	SHA256_Encrpyt(buf[i], strlen(buf[i]), hash);
 	// 	printf("input = '%s'\ndigest: %s\nresult: ", buf[i], buf[i + 1]);
