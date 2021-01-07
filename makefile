@@ -24,12 +24,5 @@ test: sha256.c sha256.h
 
 all: $(TARGET)
 
-.PHONY: clean verify
-
 clean:
 	rm -f $(TARGET) *.o
-
-verify:
-	@# Unsigned overflows are deliberate, so we skip such checks to avoid
-	@# code complication with wrapping additions into a safeguard function
-	cbmc sha256.c -DSELF_TEST $(CBMCFLAGS) $(findstring --memory-leak-check,$(CBMCH))
