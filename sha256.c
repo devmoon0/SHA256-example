@@ -1,25 +1,7 @@
-/*
-*   SHA-256 implementation, Mark 2
-*
-*   Copyright (c) 2010,2014 Ilya O. Levin, http://www.literatecode.com
-*
-*   Permission to use, copy, modify, and distribute this software for any
-*   purpose with or without fee is hereby granted, provided that the above
-*   copyright notice and this permission notice appear in all copies.
-*
-*   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-*   WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-*   MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-*   ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-*   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-*   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-*   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-*/
 #include <stdio.h>
-#include <stdlib.h>    // malloc, free ?븿?닔媛? ?꽑?뼵?맂 ?뿤?뜑 ?뙆?씪
-#include <string.h>    // memset ?븿?닔媛? ?꽑?뼵?맂 ?뿤?뜑 ?뙆?씪
+#include <stdlib.h>
+#include <string.h>
 #include "sha256.h"
-/* #define MINIMIZE_STACK_IMPACT */
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,7 +9,7 @@ extern "C" {
 
 #define FN_ inline static
 
-static const uint32_t K[64] = {
+static const uint32_t SHA256_K[64] = {
 	0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
 	0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
 	0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
@@ -111,15 +93,15 @@ FN_ uint32_t _word(uint8_t *c)
 } /* _word */
 
 /* -------------------------------------------------------------------------- */
-FN_ void  _addbits(sha256_context *ctx, uint32_t n)
+FN_ void  _addbits(SHA256_INFO *Info, uint32_t n)
 {
-	if ( ctx->bits[0] > (0xffffffff - n) )
-		ctx->bits[1] = (ctx->bits[1] + 1) & 0xFFFFFFFF;
-	ctx->bits[0] = (ctx->bits[0] + n) & 0xFFFFFFFF;
+	if ( Info->uHighLength[0] > (0xffffffff - n) )
+		Info->uHighLength[1] = (Info->uHighLength[1] + 1) & 0xFFFFFFFF;
+	Info->uHighLength[0] = (Info->uHighLength[0] + n) & 0xFFFFFFFF;
 } /* _addbits */
 
 /* -------------------------------------------------------------------------- */
-static void _hash(sha256_context *ctx)
+static void _hash(SHA256_INFO *Info)
 {
 	register uint32_t a, b, c, d, e, f, g, h, i;
 	uint32_t t[2];
@@ -127,22 +109,22 @@ static void _hash(sha256_context *ctx)
 	uint32_t W[64];
 #endif
 
-	a = ctx->hash[0];
-	b = ctx->hash[1];
-	c = ctx->hash[2];
-	d = ctx->hash[3];
-	e = ctx->hash[4];
-	f = ctx->hash[5];
-	g = ctx->hash[6];
-	h = ctx->hash[7];
+	a = Info->uChainVar[0];
+	b = Info->uChainVar[1];
+	c = Info->uChainVar[2];
+	d = Info->uChainVar[3];
+	e = Info->uChainVar[4];
+	f = Info->uChainVar[5];
+	g = Info->uChainVar[6];
+	h = Info->uChainVar[7];
 
 	for (i = 0; i < 64; i++) {
 		if ( i < 16 )
-			W[i] = _word(&ctx->buf[_shw(i, 2)]);
+			W[i] = _word(&Info->szBuffer[_shw(i, 2)]);
 		else
 			W[i] = _G1(W[i - 2]) + W[i - 7] + _G0(W[i - 15]) + W[i - 16];
 
-		t[0] = h + _S1(e) + _Ch(e, f, g) + K[i] + W[i];
+		t[0] = h + _S1(e) + _Ch(e, f, g) + SHA256_K[i] + W[i];
 		t[1] = _S0(a) + _Ma(a, b, c);
 		h = g;
 		g = f;
@@ -154,107 +136,133 @@ static void _hash(sha256_context *ctx)
 		a = t[0] + t[1];
 	}
 
-	ctx->hash[0] += a;
-	ctx->hash[1] += b;
-	ctx->hash[2] += c;
-	ctx->hash[3] += d;
-	ctx->hash[4] += e;
-	ctx->hash[5] += f;
-	ctx->hash[6] += g;
-	ctx->hash[7] += h;
-} /* _hash */
+	Info->uChainVar[0] += a;
+	Info->uChainVar[1] += b;
+	Info->uChainVar[2] += c;
+	Info->uChainVar[3] += d;
+	Info->uChainVar[4] += e;
+	Info->uChainVar[5] += f;
+	Info->uChainVar[6] += g;
+	Info->uChainVar[7] += h;
+}
 
-/* -------------------------------------------------------------------------- */
-void sha256_init(sha256_context *ctx)
+//*********************************************************************************************************************************
+// o SHA256_Init()		: 연쇄변수와 길이변수를 초기화하는 함수
+// o 입력				: Info		-  SHA-256 구조체의 포인터 변수
+// o 출력				: 
+//*********************************************************************************************************************************
+void SHA256_Init(SHA256_INFO *Info)
 {
-	if ( ctx != NULL ) {
-		ctx->bits[0]  = ctx->bits[1] = 0;
-		ctx->len      = 0;
-		ctx->hash[0] = 0x6a09e667;
-		ctx->hash[1] = 0xbb67ae85;
-		ctx->hash[2] = 0x3c6ef372;
-		ctx->hash[3] = 0xa54ff53a;
-		ctx->hash[4] = 0x510e527f;
-		ctx->hash[5] = 0x9b05688c;
-		ctx->hash[6] = 0x1f83d9ab;
-		ctx->hash[7] = 0x5be0cd19;
+	if ( Info != NULL ) {
+		Info->uHighLength[0]  = Info->uHighLength[1] = 0;
+		Info->len      = 0;
+		Info->uChainVar[0] = 0x6a09e667;
+		Info->uChainVar[1] = 0xbb67ae85;
+		Info->uChainVar[2] = 0x3c6ef372;
+		Info->uChainVar[3] = 0xa54ff53a;
+		Info->uChainVar[4] = 0x510e527f;
+		Info->uChainVar[5] = 0x9b05688c;
+		Info->uChainVar[6] = 0x1f83d9ab;
+		Info->uChainVar[7] = 0x5be0cd19;
 	}
-} /* sha256_init */
+}
 
-/* -------------------------------------------------------------------------- */
-void sha256_hash(sha256_context *ctx, const void *data, size_t len)
+//*********************************************************************************************************************************
+// o SHA256_Process()	: 임의의 길이를 가지는 입력 메시지를 512 비트 블록 단위로 나누어 압축함수를 호출하는 함수
+// o 입력				: Info		 - SHA-256 구조체의 포인터 변수
+//						  pszMessage - 입력 메시지의 포인터 변수
+//						  uDataLen	 - 입력 메시지의 바이트 길이
+// o 출력				: 
+//*********************************************************************************************************************************
+void SHA256_Process(SHA256_INFO *Info, const void *pszMessage, size_t uDataLen)
 {
 	register size_t i;
-	const uint8_t *bytes = (const uint8_t *)data;
+	const uint8_t *bytes = (const uint8_t *)pszMessage;
 
-	if ( (ctx != NULL) && (bytes != NULL) )
-		for (i = 0; i < len; i++) {
-			ctx->buf[ctx->len] = bytes[i];
-			ctx->len++;
-			if (ctx->len == sizeof(ctx->buf) ) {
-				_hash(ctx);
-				_addbits(ctx, sizeof(ctx->buf) * 8);
-				ctx->len = 0;
+	if ( (Info != NULL) && (bytes != NULL) )
+		for (i = 0; i < uDataLen; i++) {
+			Info->szBuffer[Info->len] = bytes[i];
+			Info->len++;
+			if (Info->len == sizeof(Info->szBuffer) ) {
+				_hash(Info);
+				_addbits(Info, sizeof(Info->szBuffer) * 8);
+				Info->len = 0;
 			}
 		}
-} /* sha256_hash */
+}
 
-/* -------------------------------------------------------------------------- */
-void sha256_done(sha256_context *ctx, uint8_t *hash)
+//*********************************************************************************************************************************
+// o SHA256_Close()		: 메시지 덧붙이기와 길이 덧붙이기를 수행한 후 마지막 메시지 블록을 가지고 압축함수를 호출하는 함수
+// o 입력				: Info	    - SHA-256 구조체의 포인터 변수
+//						  pszDigest	- SHA-256 해쉬값을 저장할 포인터 변수
+// o 출력				:
+//*********************************************************************************************************************************
+void SHA256_Close(SHA256_INFO *Info, uint8_t *pszDigest)
 {
 	register uint32_t i, j;
 
-	if ( ctx != NULL ) {
-		j = ctx->len % sizeof(ctx->buf);
-		ctx->buf[j] = 0x80;
-		for (i = j + 1; i < sizeof(ctx->buf); i++)
-			ctx->buf[i] = 0x00;
+	if ( Info != NULL ) {
+		j = Info->len % sizeof(Info->szBuffer);
+		Info->szBuffer[j] = 0x80;
+		for (i = j + 1; i < sizeof(Info->szBuffer); i++)
+			Info->szBuffer[i] = 0x00;
 
-		if ( ctx->len > 55 ) {
-			_hash(ctx);
-			for (j = 0; j < sizeof(ctx->buf); j++)
-				ctx->buf[j] = 0x00;
+		if ( Info->len > 55 ) {
+			_hash(Info);
+			for (j = 0; j < sizeof(Info->szBuffer); j++)
+				Info->szBuffer[j] = 0x00;
 		}
 
-		_addbits(ctx, ctx->len * 8);
-		ctx->buf[63] = _shb(ctx->bits[0],  0);
-		ctx->buf[62] = _shb(ctx->bits[0],  8);
-		ctx->buf[61] = _shb(ctx->bits[0], 16);
-		ctx->buf[60] = _shb(ctx->bits[0], 24);
-		ctx->buf[59] = _shb(ctx->bits[1],  0);
-		ctx->buf[58] = _shb(ctx->bits[1],  8);
-		ctx->buf[57] = _shb(ctx->bits[1], 16);
-		ctx->buf[56] = _shb(ctx->bits[1], 24);
-		_hash(ctx);
+		_addbits(Info, Info->len * 8);
+		Info->szBuffer[63] = _shb(Info->uHighLength[0],  0);
+		Info->szBuffer[62] = _shb(Info->uHighLength[0],  8);
+		Info->szBuffer[61] = _shb(Info->uHighLength[0], 16);
+		Info->szBuffer[60] = _shb(Info->uHighLength[0], 24);
+		Info->szBuffer[59] = _shb(Info->uHighLength[1],  0);
+		Info->szBuffer[58] = _shb(Info->uHighLength[1],  8);
+		Info->szBuffer[57] = _shb(Info->uHighLength[1], 16);
+		Info->szBuffer[56] = _shb(Info->uHighLength[1], 24);
+		_hash(Info);
 
-		if ( hash != NULL )
+		if ( pszDigest != NULL )
 			for (i = 0, j = 24; i < 4; i++, j -= 8) {
-				hash[i     ] = _shb(ctx->hash[0], j);
-				hash[i +  4] = _shb(ctx->hash[1], j);
-				hash[i +  8] = _shb(ctx->hash[2], j);
-				hash[i + 12] = _shb(ctx->hash[3], j);
-				hash[i + 16] = _shb(ctx->hash[4], j);
-				hash[i + 20] = _shb(ctx->hash[5], j);
-				hash[i + 24] = _shb(ctx->hash[6], j);
-				hash[i + 28] = _shb(ctx->hash[7], j);
+				pszDigest[i     ] = _shb(Info->uChainVar[0], j);
+				pszDigest[i +  4] = _shb(Info->uChainVar[1], j);
+				pszDigest[i +  8] = _shb(Info->uChainVar[2], j);
+				pszDigest[i + 12] = _shb(Info->uChainVar[3], j);
+				pszDigest[i + 16] = _shb(Info->uChainVar[4], j);
+				pszDigest[i + 20] = _shb(Info->uChainVar[5], j);
+				pszDigest[i + 24] = _shb(Info->uChainVar[6], j);
+				pszDigest[i + 28] = _shb(Info->uChainVar[7], j);
 			}
 	}
-} /* sha256_done */
-
-/* -------------------------------------------------------------------------- */
-void sha256(const void *data, size_t len, uint8_t *hash)
+}
+//*********************************************************************************************************************************
+// o SHA256_Encrpyt()  : 사용자 입력 평문을 한번에 처리
+// o 입력				: pszMessage - 사용자 입력 평문
+//						 pszDigest	- SHA-256 해값을 저장할 포인터 변수
+// o 출력				:
+//*********************************************************************************************************************************
+void SHA256_Encrpyt(const void *pszMessage, size_t uPlainTextLen, uint8_t *pszDigest)
 {
-	sha256_context ctx;
+	SHA256_INFO Info;
 
-	sha256_init(&ctx);
-	sha256_hash(&ctx, data, len);
-	sha256_done(&ctx, hash);
-} /* sha256 */
+	SHA256_Init(&Info);
+	SHA256_Process(&Info, pszMessage, uPlainTextLen);
+	SHA256_Close(&Info, pszDigest);
+}
 
-void file_sha256(char* path,  uint8_t *hash)
+
+//*********************************************************************************************************************************
+// o SHA256_Encrpyt()  : 사용자 입력 파일을 한번에 처리
+// o 입력				: path - 사용자 입력 파일 경로
+//						 pszDigest	- SHA-256 해값을 저장할 포인터 변수
+// o 출력				:
+//*********************************************************************************************************************************
+void FILE_SHA256_Encrpyt(char* path,  uint8_t *pszDigest)
 {
 	const int bufSize = 1024;
-	sha256_context ctx;
+	SHA256_INFO Info;
 
 	/*file open*/ 
   	FILE* file = fopen(path, "rb");
@@ -264,8 +272,9 @@ void file_sha256(char* path,  uint8_t *hash)
 		return ; 
 	} 
 	printf("File open \n\n");
+
 	/*sha256 init*/ 
-	sha256_init(&ctx);
+	SHA256_Init(&Info);
 	printf("SHA256 Init \n\n");
 
 	int readlen = 0;
@@ -275,44 +284,41 @@ void file_sha256(char* path,  uint8_t *hash)
 	while ((readlen = fread(read_buf, 1, bufSize, file)))
 	{ 
 		printf("readlen [%d]\n", readlen);
-		sha256_hash(&ctx, read_buf, readlen);
+		SHA256_Process(&Info, read_buf, readlen);
 		memset(read_buf, 0x00, bufSize);
 	}
 	printf("File read \n\n"); 
-	sha256_done(&ctx, hash);
+	SHA256_Close(&Info, pszDigest);
+
 	fclose(file);
 	if(read_buf)
   		free(read_buf);
 }
 
-/* ========================================================================== */
-
-#include <stdio.h>
-#include <string.h>
 // ref : https://github.com/ilvn/SHA256/tree/master/mark2 
 int main(void)
 {
 	// char *buf[] = {
 	// 	"abc"
 	// };
-	uint8_t hash[SHA256_BYTES];
+	uint8_t hash[SHA256_DIGEST_VALUELEN];
 	size_t i, j;
 
 	char *path = "/home/moon/workspace/kisa_sha256/test_readme.md"; // file path
 
-	file_sha256(path,hash);
+	FILE_SHA256_Encrpyt(path,hash);
 	
 	printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"); 
-		for (j = 0; j < SHA256_BYTES; j++)
+		for (j = 0; j < SHA256_DIGEST_VALUELEN; j++)
 			printf("%02x%s", hash[j], ((j % 4) == 3) ? "" : "");
 	printf("\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"); 
 	// for (i = 0; i < (sizeof(buf) / sizeof(buf[0])); i += 2) {
-	// 	sha256(buf[i], strlen(buf[i]), hash);
+	// 	SHA256_Encrpyt(buf[i], strlen(buf[i]), hash);
 	// 	printf("input = '%s'\ndigest: %s\nresult: ", buf[i], buf[i + 1]);
-	// 	for (j = 0; j < SHA256_BYTES; j++)
+	// 	for (j = 0; j < SHA256_DIGEST_VALUELEN; j++)
 	// 		printf("%02x%s", hash[j], ((j % 4) == 3) ? " " : "");
 	// 	printf("\n\n");
 	// }
 
 	return 0;
-} /* main */
+}

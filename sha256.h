@@ -1,19 +1,8 @@
-/*
-*   SHA-256 implementation, Mark 2
-*
-*   Copyright (c) 2010,2014 Ilya O. Levin, http://www.literatecode.com
-*
-*   Permission to use, copy, modify, and distribute this software for any
-*   purpose with or without fee is hereby granted, provided that the above
-*   copyright notice and this permission notice appear in all copies.
-*
-*   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-*   WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-*   MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-*   ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-*   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-*   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-*   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+/**
+@file KISA_SHA_256.h
+@brief SHA256 암호 알고리즘
+@author Copyright (c) 2013 by KISA
+@remarks http://seed.kisa.or.kr/
 */
 #ifndef SHA256_H_
 #define SHA256_H_
@@ -29,8 +18,8 @@ typedef unsigned __int32 uint32_t;
 #else
 #include <stdint.h>
 #endif
-
-#define SHA256_BYTES    32
+#define SHA256_DIGEST_BLOCKLEN	64
+#define SHA256_DIGEST_VALUELEN	32
 
 #ifdef __cplusplus
 extern "C"
@@ -38,17 +27,48 @@ extern "C"
 #endif
 
 typedef struct {
-	uint8_t  buf[64];
-	uint32_t hash[8];
-	uint32_t bits[2];
+	uint8_t  szBuffer[SHA256_DIGEST_BLOCKLEN];
+	uint32_t uChainVar[SHA256_DIGEST_VALUELEN / 4];
+	uint32_t uHighLength[2];
 	uint32_t len;
-} sha256_context;
+} SHA256_INFO;
 
-void sha256_init(sha256_context *ctx);
-void sha256_hash(sha256_context *ctx, const void *data, size_t len);
-void sha256_done(sha256_context *ctx, uint8_t *hash);
+/**
+@brief 연쇄변수와 길이변수를 초기화하는 함수
+@param Info : SHA256_Process 호출 시 사용되는 구조체
+*/
+void SHA256_Init(SHA256_INFO *Info);
 
-void sha256(const void *data, size_t len, uint8_t *hash);
+/**
+@brief 연쇄변수와 길이변수를 초기화하는 함수
+@param Info : SHA256_Init 호출하여 초기화된 구조체(내부적으로 사용된다.)
+@param pszMessage : 사용자 입력 평문
+@param inLen : 사용자 입력 평문 길이
+*/
+void SHA256_Process(SHA256_INFO *Info, const void *pszMessage, size_t uDataLen);
+
+/**
+@brief 메시지 덧붙이기와 길이 덧붙이기를 수행한 후 마지막 메시지 블록을 가지고 압축함수를 호출하는 함수
+@param Info : SHA256_Init 호출하여 초기화된 구조체(내부적으로 사용된다.)
+@param pszDigest : 암호문
+*/
+void SHA256_Close(SHA256_INFO *Info, uint8_t *pszDigest);
+
+/**
+@brief 사용자 입력 평문을 한번에 처리
+@param pszMessage : 사용자 입력 평문
+@param pszDigest : 암호문
+@remarks 내부적으로 SHA256_Init, SHA256_Process, SHA256_Close를 호출한다.
+*/
+void SHA256_Encrpyt(const void *pszMessage, size_t uPlainTextLen, uint8_t *pszDigest);
+
+/**
+@brief 사용자 입력 파일을 한번에 처리
+@param path : 사용자 입력 파일 경로
+@param pszDigest : 암호문
+@remarks 파일을 읽어 내부적으로 SHA256_Init, SHA256_Process, SHA256_Close를 호출한다.
+*/
+void FILE_SHA256_Encrpyt(char* path,  uint8_t *pszDigest);
 
 #ifdef __cplusplus
 }
